@@ -1,0 +1,1588 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stargate Command - DHD Interface</title>
+    <style>
+		html,
+		body {
+			width: 100%;
+			height: 100%;
+			margin: 0;
+			padding: 0;
+			overflow: hidden;
+            background: #000;
+            font-family: 'BankGothic', 'Segoe UI', sans-serif;
+		}
+
+		body {
+			display: flex;
+		}
+		
+        #container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+        #stargate-container {
+            width: 100%;
+            height: 100%;
+            max-width: 100%;
+            max-height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+        #stargate {
+            width: 100%;
+            height: 100%;
+            max-width: 100%;
+            max-height: 100%;
+            display: block;
+            object-fit: contain;
+        }
+        /*
+         * Groupe "Anneau" du SVG
+         */
+		#Anneau {
+			transform-box: view-box;
+			transform-origin: 500px 500px;
+		}
+		
+		@font-face {
+			font-family : BankGothic;
+			src: url(fonts/BankGothicMediumBT.ttf);
+		}
+		
+		/* Animation fluide sur l'attribut transform */
+		.glyph-animated {
+		  transition: transform 0.8s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.5s ease;
+		  transform-box: fill-box;
+		  transform-origin: center;
+		}
+
+		/* =========================================================================
+		 * BOUTON FLOTTANT EN BAS À DROITE (HUD SGC)
+		 * ========================================================================= */
+		#btn-coordonnees {
+			position: fixed;
+			bottom: 24px;
+			right: 24px;
+			z-index: 1000;
+			background: linear-gradient(135deg, rgba(8, 22, 42, 0.92), rgba(18, 48, 80, 0.95));
+			border: 1.5px solid #4fb8d0;
+			color: #b4eeee;
+			padding: 13px 22px;
+			border-radius: 8px;
+			font-family: 'BankGothic', sans-serif;
+			font-size: 13px;
+			letter-spacing: 1.8px;
+			font-weight: bold;
+			cursor: pointer;
+			box-shadow: 0 0 20px rgba(79, 184, 208, 0.45), inset 0 0 12px rgba(79, 184, 208, 0.2);
+			transition: all 0.25s ease-in-out;
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			backdrop-filter: blur(10px);
+			user-select: none;
+		}
+
+		#btn-coordonnees:hover {
+			background: linear-gradient(135deg, rgba(16, 48, 85, 0.96), rgba(35, 90, 140, 0.98));
+			border-color: #b4eeee;
+			color: #ffffff;
+			box-shadow: 0 0 30px rgba(180, 238, 238, 0.7), inset 0 0 18px rgba(180, 238, 238, 0.35);
+			transform: translateY(-3px) scale(1.02);
+		}
+
+		#btn-coordonnees .icone {
+			font-size: 18px;
+			filter: drop-shadow(0 0 6px #4fb8d0);
+		}
+
+		/* =========================================================================
+		 * BANNIÈRE DE STATUT DE COMPOSITION (LIVESTATUS)
+		 * ========================================================================= */
+		#statut-composition {
+			position: fixed;
+			bottom: 84px;
+			right: 24px;
+			z-index: 1000;
+			width: 380px;
+			background: linear-gradient(180deg, rgba(6, 18, 34, 0.95), rgba(10, 28, 50, 0.98));
+			border: 1.5px solid #4fb8d0;
+			border-radius: 10px;
+			padding: 14px 18px;
+			box-shadow: 0 0 25px rgba(79, 184, 208, 0.4);
+			backdrop-filter: blur(10px);
+			font-family: 'BankGothic', sans-serif;
+			color: #e0f2f7;
+			display: none;
+			animation: slideUp 0.3s ease-out;
+		}
+
+		@keyframes slideUp {
+			from { opacity: 0; transform: translateY(20px); }
+			to { opacity: 1; transform: translateY(0); }
+		}
+
+		.statut-header {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			margin-bottom: 8px;
+		}
+
+		.statut-titre-wrap {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+		}
+
+		.pulsar-voyant {
+			width: 10px;
+			height: 10px;
+			background-color: #4fb8d0;
+			border-radius: 50%;
+			box-shadow: 0 0 10px #4fb8d0;
+			animation: pulsar 1.2s infinite alternate;
+		}
+
+		@keyframes pulsar {
+			0% { opacity: 0.3; transform: scale(0.8); }
+			100% { opacity: 1; transform: scale(1.2); box-shadow: 0 0 14px #b4eeee; }
+		}
+
+		#statut-dest-nom {
+			font-size: 13px;
+			font-weight: bold;
+			color: #b4eeee;
+			letter-spacing: 1px;
+			text-transform: uppercase;
+		}
+
+		#btn-interrompre {
+			background: rgba(180, 30, 30, 0.85);
+			border: 1px solid #ff5555;
+			color: #ffffff;
+			font-family: 'BankGothic', sans-serif;
+			font-size: 10px;
+			letter-spacing: 1px;
+			padding: 4px 10px;
+			border-radius: 4px;
+			cursor: pointer;
+			transition: all 0.2s ease;
+		}
+
+		#btn-interrompre:hover {
+			background: rgba(220, 40, 40, 1);
+			box-shadow: 0 0 10px rgba(255, 80, 80, 0.7);
+		}
+
+		/* =========================================================================
+		 * MODAL OVERLAY & FENÊTRE DES COORDONNÉES
+		 * ========================================================================= */
+		.modal-overlay {
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			background: rgba(0, 0, 0, 0.78);
+			backdrop-filter: blur(8px);
+			z-index: 2000;
+			display: none;
+			justify-content: center;
+			align-items: center;
+			opacity: 0;
+			transition: opacity 0.25s ease-in-out;
+		}
+
+		.modal-overlay.actif {
+			display: flex;
+			opacity: 1;
+		}
+
+		.modal-fenetre {
+			background: linear-gradient(180deg, rgba(8, 22, 40, 0.98) 0%, rgba(4, 12, 22, 0.99) 100%);
+			border: 1.5px solid #4fb8d0;
+			border-radius: 14px;
+			width: 94%;
+			max-width: 920px;
+			max-height: 88vh;
+			display: flex;
+			flex-direction: column;
+			box-shadow: 0 0 45px rgba(79, 184, 208, 0.4), inset 0 0 25px rgba(79, 184, 208, 0.12);
+			font-family: 'BankGothic', sans-serif;
+			color: #e0f2f7;
+			overflow: hidden;
+			animation: zoomIn 0.25s ease-out;
+		}
+
+		@keyframes zoomIn {
+			from { transform: scale(0.95); opacity: 0; }
+			to { transform: scale(1); opacity: 1; }
+		}
+
+		.modal-header {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			padding: 18px 24px;
+			border-bottom: 1px solid rgba(79, 184, 208, 0.3);
+			background: linear-gradient(90deg, rgba(15, 38, 68, 0.8), rgba(8, 22, 40, 0.5));
+		}
+
+		.modal-titre-wrap h2 {
+			margin: 0;
+			font-size: 18px;
+			letter-spacing: 2px;
+			color: #b4eeee;
+			text-shadow: 0 0 12px rgba(180, 238, 238, 0.6);
+		}
+
+		.modal-soustitre {
+			font-size: 11px;
+			color: #6faec5;
+			letter-spacing: 1.2px;
+			margin-top: 4px;
+		}
+
+		.modal-btn-fermer {
+			background: transparent;
+			border: 1px solid rgba(79, 184, 208, 0.5);
+			color: #b4eeee;
+			width: 34px;
+			height: 34px;
+			border-radius: 50%;
+			font-size: 16px;
+			cursor: pointer;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			transition: all 0.2s ease;
+		}
+
+		.modal-btn-fermer:hover {
+			background: rgba(180, 30, 30, 0.7);
+			border-color: #ff6666;
+			color: #ffffff;
+			box-shadow: 0 0 12px rgba(255, 80, 80, 0.7);
+		}
+
+		.modal-filtres {
+			padding: 14px 24px;
+			border-bottom: 1px solid rgba(79, 184, 208, 0.2);
+			display: flex;
+			gap: 14px;
+			background: rgba(5, 15, 28, 0.6);
+		}
+
+		#input-recherche {
+			flex: 1;
+			background: rgba(10, 26, 48, 0.8);
+			border: 1px solid rgba(79, 184, 208, 0.4);
+			border-radius: 6px;
+			padding: 10px 14px;
+			color: #ffffff;
+			font-family: 'BankGothic', sans-serif;
+			font-size: 12px;
+			letter-spacing: 1px;
+			outline: none;
+			transition: all 0.2s ease;
+		}
+
+		#input-recherche:focus {
+			border-color: #b4eeee;
+			box-shadow: 0 0 15px rgba(180, 238, 238, 0.35);
+		}
+
+		.modal-corps {
+			flex: 1;
+			overflow-y: auto;
+			padding: 18px 24px;
+			display: grid;
+			grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+			gap: 16px;
+		}
+
+		/* Scrollbar personnalisée */
+		.modal-corps::-webkit-scrollbar {
+			width: 6px;
+		}
+		.modal-corps::-webkit-scrollbar-track {
+			background: rgba(5, 15, 25, 0.6);
+		}
+		.modal-corps::-webkit-scrollbar-thumb {
+			background: rgba(79, 184, 208, 0.4);
+			border-radius: 3px;
+		}
+		.modal-corps::-webkit-scrollbar-thumb:hover {
+			background: rgba(180, 238, 238, 0.7);
+		}
+
+		/* Carte de destination */
+		.dest-card {
+			background: linear-gradient(135deg, rgba(12, 30, 54, 0.75), rgba(7, 18, 34, 0.85));
+			border: 1px solid rgba(79, 184, 208, 0.35);
+			border-radius: 10px;
+			padding: 16px;
+			display: flex;
+			flex-direction: column;
+			justify-content: space-between;
+			transition: all 0.25s ease;
+			box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+		}
+
+		.dest-card:hover {
+			border-color: #b4eeee;
+			background: linear-gradient(135deg, rgba(18, 44, 78, 0.9), rgba(10, 26, 48, 0.95));
+			box-shadow: 0 0 20px rgba(79, 184, 208, 0.35);
+			transform: translateY(-2px);
+		}
+
+		.dest-card-header {
+			display: flex;
+			justify-content: space-between;
+			align-items: flex-start;
+			margin-bottom: 8px;
+		}
+
+		.dest-nom {
+			font-size: 15px;
+			font-weight: bold;
+			color: #b4eeee;
+			letter-spacing: 1.5px;
+		}
+
+		.dest-galaxie {
+			font-size: 10px;
+			padding: 3px 8px;
+			border-radius: 4px;
+			background: rgba(40, 67, 151, 0.6);
+			border: 1px solid #4fb8d0;
+			color: #b4eeee;
+			letter-spacing: 1px;
+		}
+
+		.dest-desc {
+			font-size: 11px;
+			color: #8bbcd0;
+			line-height: 1.4;
+			margin-bottom: 14px;
+		}
+
+		/* Liste des glyphes visuels purs (sans numéros) */
+		.dest-glyphes-liste {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 8px;
+			margin-bottom: 16px;
+			align-items: center;
+		}
+
+		.glyph-chip {
+			background: rgba(10, 30, 55, 0.85);
+			border: 1.5px solid #4fb8d0;
+			border-radius: 8px;
+			padding: 8px 10px;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			min-width: 44px;
+			min-height: 44px;
+			box-sizing: border-box;
+			box-shadow: 0 0 10px rgba(79, 184, 208, 0.25), inset 0 0 6px rgba(79, 184, 208, 0.1);
+			transition: all 0.2s ease;
+		}
+
+		.glyph-chip:hover {
+			border-color: #b4eeee;
+			box-shadow: 0 0 15px rgba(180, 238, 238, 0.5);
+			transform: translateY(-2px);
+		}
+
+		.glyph-chip.origine {
+			background: linear-gradient(135deg, rgba(110, 65, 15, 0.85), rgba(75, 45, 10, 0.95));
+			border-color: #ffaa33;
+			box-shadow: 0 0 12px rgba(255, 170, 50, 0.4), inset 0 0 8px rgba(255, 170, 50, 0.2);
+		}
+
+		.glyph-chip.origine polygon,
+		.glyph-chip.origine path,
+		.glyph-chip.origine circle {
+			stroke: #ffbb44 !important;
+			filter: drop-shadow(0 0 4px rgba(255, 180, 50, 0.7));
+		}
+
+		.icone-glyphe-svg {
+			width: 28px;
+			height: 28px;
+			stroke: #b4eeee;
+			stroke-width: 1.5;
+			fill: none;
+			filter: drop-shadow(0 0 4px rgba(79, 184, 208, 0.6));
+			transition: all 0.2s ease;
+		}
+
+		.dest-card-footer {
+			display: flex;
+			justify-content: flex-end;
+		}
+
+		.btn-composer {
+			background: linear-gradient(135deg, #18426d, #25669b);
+			border: 1px solid #4fb8d0;
+			color: #ffffff;
+			padding: 8px 16px;
+			border-radius: 6px;
+			font-family: 'BankGothic', sans-serif;
+			font-size: 11px;
+			letter-spacing: 1.5px;
+			font-weight: bold;
+			cursor: pointer;
+			transition: all 0.2s ease;
+			display: flex;
+			align-items: center;
+			gap: 6px;
+		}
+
+		.btn-composer:hover {
+			background: linear-gradient(135deg, #25669b, #388ecc);
+			border-color: #b4eeee;
+			box-shadow: 0 0 15px rgba(79, 184, 208, 0.6);
+		}
+
+		.modal-footer {
+			padding: 12px 24px;
+			border-top: 1px solid rgba(79, 184, 208, 0.25);
+			background: rgba(5, 15, 28, 0.8);
+			font-size: 11px;
+			color: #6faec5;
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+		}
+	</style>
+</head>
+<body>
+    <div id="container">
+        <div id="stargate-container">
+            <object
+                id="stargate"
+                data="images/Stargate2.svg"
+                type="image/svg+xml">
+            </object>
+        </div>
+    </div>
+
+    <!-- MODAL DES COORDONNÉES STARGATE -->
+    <div id="modal-coordonnees" class="modal-overlay">
+        <div class="modal-fenetre">
+            <div class="modal-header">
+                <div class="modal-titre-wrap">
+                    <h2>COORDONNÉES DE LA PORTE DES ÉTOILES</h2>
+                    <div class="modal-soustitre">Base de données du S.G.C. — Protocoles d'enclenchement automatisé</div>
+                </div>
+                <button id="modal-fermer" class="modal-btn-fermer" title="Fermer la fenêtre">✕</button>
+            </div>
+            <div class="modal-filtres">
+                <input type="text" id="input-recherche" placeholder="Rechercher une destination (ex: Abydos, Chulak, Atlantis, Asgard...)" />
+            </div>
+            <div class="modal-corps" id="destinations-liste">
+                <!-- Cartes injectées dynamiquement par JS -->
+            </div>
+            <div class="modal-footer">
+                <span>Protocole de composition S.G.C. • Pause configurable entre chaque chevron.</span>
+                <span id="compteur-destinations">12 destinations</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+		// =========================================================================
+		// CONSTANTES DE CONFIGURATION (MODIFIABLES ICI EN UN SEUL ENDROIT)
+		// =========================================================================
+		// Délai d'attente entre la validation d'un chevron et le passage au glyphe suivant (en secondes)
+		const DELAI_ENTRE_GLYPHS_SEC = 2;
+
+		const NB_GLYPHS = 39;
+		const NB_CHEVRONS = 9;
+		const ANGLE_STEP = -360 / NB_GLYPHS;
+		
+		let CENTER_X = null;
+		let CENTER_Y = null;
+			
+        let anneau = null;
+		let lueur = null;
+		let zoneGlyphGrp = null;
+		let chevronsGrp = null;
+		let glyphSelected = null;
+        let speed = 30; // degrés/seconde
+        let rotating = false;
+        let animationFrame = null;
+		
+		let currentAngle = 0;
+		let targetAngle = null;
+		let lastTime = null;
+		let svgDocument = null;
+		
+		let currentDial = 1;
+		let currentDialLineaire = 1;
+
+		// État du vortex / horizon des événements
+		let horizonActive = false;
+
+		// Résolveur de promesse pour synchroniser la composition automatique avec la validation des chevrons
+		let chevronValidationResolver = null;
+		let sequenceAutoEnCours = false;
+		let stopSequenceAuto = false;
+
+		// Cache des bboxes pour l'affichage vectoriel des 39 glyphes
+		const glyphesBBoxCache = {};
+
+		/* =========================================================================
+		 * BASE DE DONNÉES DES COORDONNÉES DE LA PORTE DES ÉTOILES
+		 * ========================================================================= */
+		const COORDONNEES_STARGATE = [
+			{
+				nom: "Abydos",
+				designation: "Première mission de SG-1 • Planète de Sha're et Kasuf",
+				galaxie: "Voie Lactée",
+				glyphes: [27, 7, 15, 32, 12, 30, 1],
+				description: "Planète désertique où le Dr Daniel Jackson a déchiffré le fonctionnement de la Porte des Étoiles et vaincu le Grand Maître Râ."
+			},
+			{
+				nom: "Chulak",
+				designation: "Monde natal de Teal'c et forteresse d'Apophis",
+				galaxie: "Voie Lactée",
+				glyphes: [9, 2, 23, 15, 37, 20, 1],
+				description: "Planète tempérée servant de camp d'entraînement principal pour les armées de Jaffas au service d'Apophis."
+			},
+			{
+				nom: "Atlantis",
+				designation: "Cité légendaire des Anciens (Lantea)",
+				galaxie: "Pégase",
+				glyphes: [18, 20, 1, 15, 14, 7, 1],
+				description: "Cité-vaisseau spatiale des Anciens submergée dans l'océan de la galaxie de Pégase, quartier général de l'expédition Atlantis."
+			},
+			{
+				nom: "Dakara",
+				designation: "Sanctuaire originel de la Rébellion Jaffa",
+				galaxie: "Voie Lactée",
+				glyphes: [28, 14, 18, 30, 24, 38, 1],
+				description: "Lieu sacré du premier atterrissage des Goa'uld et site de l'arme des Anciens utilisée pour vaincre les Réplicateurs."
+			},
+			{
+				nom: "Othala",
+				designation: "Monde natal des Asgards (Galaxie d'Ida)",
+				galaxie: "Ida",
+				glyphes: [28, 26, 5, 36, 11, 29, 1],
+				description: "Capitale asgarde visitée par Jack O'Neill avec la bibliothèque des Anciens, point de départ de l'alliance Tau'ri-Asgard."
+			},
+			{
+				nom: "Site Alpha (P3X-984)",
+				designation: "Base de repli secrète du S.G.C.",
+				galaxie: "Voie Lactée",
+				glyphes: [29, 5, 17, 34, 6, 12, 1],
+				description: "Installation fortifiée de sécurité construite pour assurer la survie du SGC et de la Terre en cas d'attaque majeure."
+			},
+			{
+				nom: "P3X-888",
+				designation: "Monde originel des Unas et des Symbiotes Goa'uld",
+				galaxie: "Voie Lactée",
+				glyphes: [10, 20, 35, 31, 28, 5, 1],
+				description: "Planète primitive aux eaux fossiles où les premiers symbiotes ont évolué et parasité leurs premiers hôtes Unas."
+			},
+			{
+				nom: "Tartarus",
+				designation: "Forteresse d'Anubis et usine des Guerriers Kull",
+				galaxie: "Voie Lactée",
+				glyphes: [24, 12, 32, 7, 11, 34, 1],
+				description: "Base lourdement défendue par un bouclier d'occultation et une armée de super-soldats cybernétiques invulnérables."
+			},
+			{
+				nom: "P4X-639",
+				designation: "Planète de la boucle temporelle (Malikai)",
+				galaxie: "Voie Lactée",
+				glyphes: [13, 24, 2, 19, 3, 30, 1],
+				description: "Ruines d'une machine temporelle des Anciens ayant emprisonné le SGC dans une boucle de plusieurs heures répétitives."
+			},
+			{
+				nom: "Kheb",
+				designation: "Sanctuaire spirituel d'Oma Desala (Shifu)",
+				galaxie: "Voie Lactée",
+				glyphes: [26, 35, 6, 8, 23, 14, 1],
+				description: "Temple mythique dédié à l'élévation spirituelle où Daniel Jackson a protégé l'enfant Harsesis Shifu."
+			},
+			{
+				nom: "Langara (P2S-4M7)",
+				designation: "Monde natal de Jonas Quinn (Kelowna)",
+				galaxie: "Voie Lactée",
+				glyphes: [7, 19, 3, 25, 14, 33, 1],
+				description: "Planète industrielle abritant d'importants gisements de Naquadria, théâtre de conflits entre trois puissances rivales."
+			},
+			{
+				nom: "Terre (Tau'ri)",
+				designation: "Point d'origine Terre (Pyramide & Soleil)",
+				galaxie: "Voie Lactée",
+				glyphes: [28, 26, 5, 36, 11, 29, 1],
+				description: "Planète mère de l'humanité, commandement SGC sous la montagne Cheyenne dans le Colorado."
+			}
+		];
+		
+        /*
+         * Récupération du SVG contenu dans <object>
+         */
+        const svgObject = document.getElementById("stargate");
+        svgObject.addEventListener("load", function () {
+            svgDocument = svgObject.contentDocument;
+            if (!svgDocument) {
+                console.error("Impossible d'accéder au document SVG.");
+                return;
+            }
+					
+			texteSuccess('IDLE','ba0000ff');
+			
+			const pathCircle = svgDocument.getElementById('cercleExt');
+
+			// Obtenir la Bounding Box
+			const bbox = pathCircle.getBBox();
+
+			// Calculer le centre
+			CENTER_X = bbox.x + bbox.width / 2;
+			CENTER_Y = bbox.y + bbox.height / 2;
+			console.log("Centre  :", CENTER_X, CENTER_Y);
+
+            /*
+              Recherche du groupe Anneau
+             */
+            anneau = svgDocument.getElementById("Anneau");
+            if (!anneau) {
+                console.error("Le groupe SVG #Anneau est introuvable.");
+                return;
+            }
+			
+			const anglePasGlyph = 360 / NB_GLYPHS;
+			zoneGlyphGrp = svgDocument.getElementById('ZoneGlyphGrp');
+			const glyph1 = svgDocument.getElementById('ZoneGlyph0');
+
+			// 1. Configurer le glyphe original (Numéro 1)
+			if (glyph1) {
+			  glyph1.style.cursor = "pointer";
+			  glyph1.setAttribute('data-index', '1');
+			  
+			  glyph1.addEventListener("click", () => {
+				if (horizonActive) return; // Désactiver si l'horizon est actif
+				const glyphId = 1;
+				if (currentDial > NB_CHEVRONS) {
+				  reset();
+				}
+				glyph1.classList.add("glyph-active");
+				tournerVersGlyph(glyphId);
+			  });
+			}
+			
+			lueur = svgDocument.getElementById("lueur");
+			if (lueur) {
+				lueur.style.display = "inline";
+				lueur.style.opacity = "1";
+				lueur.style.cursor = "pointer";
+				lueur.style.pointerEvents = "all";
+			}
+
+			function scintillerLueur() {
+				if (!lueur) return;
+				const minOpacity = 0.2 + Math.random() * 0.3;
+				const maxOpacity = 0.7 + Math.random() * 0.3;
+				const dureeDescente = 500 + Math.random() * 700;
+				const dureeMontee = 500 + Math.random() * 700;
+
+				lueur.style.transition = `opacity ${dureeDescente}ms ease-in-out`;
+				lueur.style.opacity = minOpacity;
+
+				setTimeout(() => {
+					if (!lueur) return;
+					lueur.style.transition = `opacity ${dureeMontee}ms ease-in-out`;
+					lueur.style.opacity = maxOpacity;
+					setTimeout(() => {
+						scintillerLueur();
+					}, dureeMontee);
+				}, dureeDescente);
+			}
+
+			scintillerLueur();
+			rotateHorizontal3D(0.001);
+			
+			// 2. Dupliquer et configurer les autres glyphes (Numéros 2 à NB_GLYPHS)
+			for (let i = 1; i < NB_GLYPHS; i++) {
+			  const glyphIndex = i + 1;
+			  const glyph = glyph1.cloneNode(true);
+
+			  glyph.id = `ZoneGlyph${i}`;
+			  glyph.setAttribute('inkscape:label', `ZoneGlyph${i}`);
+			  glyph.setAttribute('data-index', glyphIndex);
+
+			  const angle = i * anglePasGlyph;
+			  glyph.setAttribute('transform', `rotate(${angle}, ${CENTER_X}, ${CENTER_Y})`);
+			  zoneGlyphGrp.appendChild(glyph);
+
+			  glyph.style.cursor = "pointer";
+			  glyph.addEventListener("click", () => {
+				if (horizonActive) return; // Désactiver si l'horizon est actif
+				if (currentDial > NB_CHEVRONS) {
+				  reset();
+				}
+				glyph.classList.add("glyph-active");
+				tournerVersGlyph(glyphIndex);
+			  });
+			}
+			
+			const anglePasChevrons = 360 / NB_CHEVRONS;
+			chevronsGrp = svgDocument.getElementById('ChevronsGrp');
+			const chevronBase = svgDocument.getElementById('Chevron9');
+			for (let i = 1; i < NB_CHEVRONS; i++) {
+			  const chevronIndex = i + 1;
+			  const chevron = chevronBase.cloneNode(true);
+
+			  chevron.id = `Chevron${i}`;
+			  chevron.setAttribute('inkscape:label', `ZoneGlyph${i}`);
+			  chevron.setAttribute('data-index', chevronIndex);
+
+			  const angle = i * anglePasChevrons;
+			  chevron.setAttribute('transform', `rotate(${angle}, ${CENTER_X}, ${CENTER_Y})`);
+			  chevronsGrp.appendChild(chevron);
+
+			  chevron.style.cursor = "pointer";
+			  chevron.addEventListener("click", () => {
+				if (horizonActive) return; // Désactiver si l'horizon est actif
+				if (currentDial > NB_CHEVRONS) {
+				  reset();
+				}
+				chevron.classList.add("chevron-active");
+				tournerVersGlyph(chevronIndex);
+			  });
+			}
+			
+			// Configuration de l'horizon des événements
+			const horizon = svgDocument.getElementById("horizon");
+			if (horizon) {
+				horizon.style.cursor = "pointer";
+				horizon.style.pointerEvents = "all";
+				horizon.classList.add("pulse");
+				horizon.addEventListener("click", (e) => {
+					console.log("Clic sur horizon -> reset");
+					reset();
+				});
+			}
+
+			// Configuration du groupe horizon global et de la lueur
+			const g51 = svgDocument.getElementById("g51");
+			if (g51) {
+				g51.style.cursor = "pointer";
+				g51.style.pointerEvents = "all";
+				g51.addEventListener("click", (e) => {
+					if (horizonActive || (horizon && horizon.style.display !== 'none')) {
+						console.log("Clic sur groupe g51 -> reset");
+						reset();
+					}
+				});
+			}
+
+			// Rendre les cercles décoratifs d'arrière-plan perméables aux clics pour que l'horizon reçoive toujours le clic
+			svgDocument.querySelectorAll('#cercleExt, [id^="path7481"]').forEach(el => {
+				el.style.pointerEvents = 'none';
+			});
+			
+			for (let i = 1; i <= NB_GLYPHS; i++) {
+				const glyph = svgDocument.getElementById(`ZoneGlyph${i}`);
+				const groupe = svgDocument.getElementById(`g${i}`);
+
+				if (!glyph || !groupe) continue;
+
+				glyph.addEventListener("mouseenter", () => {
+					if (horizonActive) return; // Désactiver le survol si l'horizon est actif
+					groupe.querySelectorAll("polygon, circle, path").forEach(element => {
+						element.style.setProperty("stroke", "white", "important");
+					});
+				});
+
+				glyph.addEventListener("mouseleave", () => {
+					groupe.querySelectorAll("polygon, circle, path").forEach(element => {
+						element.style.removeProperty("stroke");
+					});
+				});
+			}
+			
+			const boutonsOkGrp = svgDocument.getElementById("boutonsOkGrp");
+			for (let i = 1; i < NB_CHEVRONS - 1; i++) {
+				const boutons1 = svgDocument.getElementById("boutons1");
+				const boutons = boutons1.cloneNode(true);
+				const chiffre = boutons.querySelector("#chiffre1");
+				const lettre = boutons.querySelector("#lettre1");
+				if (i > 1) {
+					const dist = (i - 1) * 25;
+					boutons.setAttribute('transform', `translate(0 ${dist})`);
+					boutons.id = `boutons${i}`;
+				}
+				if (chiffre) {
+					chiffre.id = `chiffre${i}`;
+					chiffre.querySelector("tspan").textContent = i;
+				}
+				if (lettre) {
+					lettre.id = `lettre${i}`;
+					lettre.querySelector("tspan").textContent = String.fromCharCode(64 + i);
+				}
+				const btnVert = boutons.querySelector("#btnVert");
+				if (btnVert) {
+					btnVert.id = `btnVert${i}`;
+				}
+				const btnOk = boutons.querySelector("#ok");
+				if (btnOk) {
+					btnOk.id = `ok${i}`;
+				}
+				boutonsOkGrp.appendChild(boutons);
+			}
+			
+            /*
+             * Lancement de l'animation
+             */
+            animate();
+
+			// Précalculer les bboxes des glyphes vectoriels et initialiser l'UI des coordonnées
+			precalculerBBoxesGlyphes();
+			initialiserUIModalCoordonnees();
+        });	
+		
+        /*
+         * Animation de rotation
+         */
+		function animate(time) {
+			if (lastTime === null) {
+				lastTime = time;
+			}
+
+			const deltaTime = (time - lastTime) / 1000;
+			lastTime = time;
+
+			if (rotating && targetAngle !== null) {
+				let difference = ((targetAngle - currentAngle + 180) % 360) - 180;
+				const distance = speed * deltaTime;
+
+				// Arrivée à destination
+				if (Math.abs(difference) <= distance) {
+					stopperSon("roll");
+					currentAngle = targetAngle;
+					rotating = false;
+					console.log("Rotation terminée");
+					validerChevron();
+				} else {
+					//texteSuccess("");
+					jouerSon("roll");
+					currentAngle += difference > 0 ? distance : -distance;
+				}
+
+				anneau.setAttribute("transform", `rotate(${currentAngle} ${CENTER_X} ${CENTER_Y})`);
+				zoneGlyphGrp.setAttribute("transform", `rotate(${currentAngle} ${CENTER_X} ${CENTER_Y})`);
+			}
+			requestAnimationFrame(animate);
+		}
+		
+		/**
+		 * Fait tourner l'anneau jusqu'au glyph demandé.
+		 * @param {number} id Numéro du glyphe (1 à 39)
+		 */
+		function tournerVersGlyph(id) {
+			if (id < 1 || id > 39) {
+				console.error("Numéro de glyph invalide :", id);
+				return;
+			}
+			
+			// Si le vortex est actif et qu'aucune séquence n'est en cours, ignorer
+			if (horizonActive && !sequenceAutoEnCours) {
+				console.log("Vortex actif : rotation désactivée.");
+				return;
+			}
+
+			sonDhd();
+			glyphSelected = animerGlyphversMilieu(id, 15, 1000);
+
+			const clickedAngle = (id - 1) * ANGLE_STEP;
+			const normalizedTarget = ((clickedAngle % 360) + 360) % 360;
+			const normalizedCurrent = ((currentAngle % 360) + 360) % 360;
+
+			let difference = normalizedTarget - normalizedCurrent;
+			if (difference > 180) difference -= 360;
+			if (difference < -180) difference += 360;
+
+			targetAngle = currentAngle + difference;
+			rotating = true;
+		}
+		
+		function validerChevron() {
+			const deplacementValidationBas = 8;
+			const deplacementValidationHaut = deplacementValidationBas / 2;
+			const vitesseTranslation = 40;
+			
+			sonChevron(currentDial);
+
+			if (currentDial == NB_CHEVRONS) {
+				allumerHorizon(2000, 1000);
+			}
+			allumerChevron(currentDial);
+			animerGlypheVersCase(glyphSelected, currentDial, 1000);
+			
+			const btnVert = svgDocument.getElementById(`btnVert${currentDialLineaire}`);
+			if (btnVert) btnVert.style.display = "inline";
+			const btnOk = svgDocument.getElementById(`ok${currentDialLineaire}`);
+			if (btnOk) btnOk.style.display = "inline";
+			
+			currentDial = currentDial + 1;
+			currentDialLineaire = currentDialLineaire + 1;
+			if (currentDial == 4) {
+				currentDial = 6;
+			}
+
+			// Déclencheur pour la composition automatisée
+			if (typeof chevronValidationResolver === 'function') {
+				const resolve = chevronValidationResolver;
+				chevronValidationResolver = null;
+				resolve();
+			}
+		}
+
+		/* =========================================================================
+		 * GESTION DU TEXTE DE DESTINATION DANS LE SVG
+		 * ========================================================================= */
+		/**
+		 * Met à jour le texte DESTINATION: dans le SVG
+		 * @param {string} nom Nom de la destination à afficher
+		 */
+		function setDestination(nom = "") {
+			if (!svgDocument) return;
+			const tspan = svgDocument.getElementById('tspan2-8') || svgDocument.getElementById('text2-4');
+			if (tspan) {
+				if (nom && nom.trim().length > 0) {
+					tspan.textContent = `DESTINATION: ${nom.trim().toUpperCase()}`;
+				} else {
+					tspan.textContent = "DESTINATION:";
+				}
+			}
+		}
+
+		// Rendre la fonction accessible globalement
+		window.setDestination = setDestination;
+
+		/* =========================================================================
+		 * FONCTIONS POUR CHANGER AUTHORIZATION CODE #1 ET #2
+		 * ========================================================================= */
+		/**
+		 * Modifie le code d'autorisation #1 (LST CODE #1 - 6 chiffres)
+		 * @param {string|number} code Exemple: "778927" ou "123456"
+		 */
+		function setAuthorizationCode1(code) {
+			if (!svgDocument) return;
+			const str = String(code).replace(/[^0-9A-Z]/gi, '');
+			const ids = ['text135', 'text135-1', 'text135-7', 'text135-7-7', 'text135-7-9', 'text135-7-2'];
+			for (let i = 0; i < ids.length; i++) {
+				const elem = svgDocument.getElementById(ids[i]);
+				if (elem) {
+					const tspan = elem.querySelector('tspan') || elem;
+					tspan.textContent = i < str.length ? str[i] : ' ';
+				}
+			}
+			console.log(`Authorization Code #1 mis à jour : ${str}`);
+		}
+
+		/**
+		 * Modifie le code d'autorisation #2 (LST CODE #2 - 8 ou 9 caractères avec tiret)
+		 * @param {string|number} code Exemple: "5789-2387" ou "57892387"
+		 */
+		function setAuthorizationCode2(code) {
+			if (!svgDocument) return;
+			let str = String(code).trim();
+			// Si le code contient 8 caractères sans tiret, insérer automatiquement le tiret au milieu
+			if (/^[0-9A-Z]{8}$/i.test(str)) {
+				str = str.substring(0, 4) + '-' + str.substring(4);
+			}
+			const ids = ['text135-7-8', 'text135-7-0', 'text135-7-5', 'text135-7-6', 'text135-7-8-1', 'text135-7-89', 'text135-7-3', 'text135-7-78', 'text135-7-07'];
+			for (let i = 0; i < ids.length; i++) {
+				const elem = svgDocument.getElementById(ids[i]);
+				if (elem) {
+					const tspan = elem.querySelector('tspan') || elem;
+					tspan.textContent = i < str.length ? str[i] : ' ';
+				}
+			}
+			console.log(`Authorization Code #2 mis à jour : ${str}`);
+		}
+
+		/**
+		 * Modifie simultanément les codes d'autorisation #1 et #2
+		 * @param {string|number} code1
+		 * @param {string|number} code2
+		 */
+		function setAuthorizationCodes(code1, code2) {
+			if (code1 !== undefined) setAuthorizationCode1(code1);
+			if (code2 !== undefined) setAuthorizationCode2(code2);
+		}
+
+		// Alias français et anglais globaux
+		window.setAuthorizationCode1 = setAuthorizationCode1;
+		window.setAuthorizationCode2 = setAuthorizationCode2;
+		window.setAuthorizationCodes = setAuthorizationCodes;
+		window.changerAuthorizationCode1 = setAuthorizationCode1;
+		window.changerAuthorizationCode2 = setAuthorizationCode2;
+		window.changerAuthorizationCodes = setAuthorizationCodes;
+
+		/* =========================================================================
+		 * FONCTIONS DE COMPOSITION AUTOMATISÉE D'ADRESSE
+		 * ========================================================================= */
+		function attendreValidationChevron() {
+			return new Promise((resolve) => {
+				chevronValidationResolver = resolve;
+			});
+		}
+
+		function arreterSequence() {
+			if (sequenceAutoEnCours) {
+				stopSequenceAuto = true;
+				if (chevronValidationResolver) {
+					chevronValidationResolver();
+					chevronValidationResolver = null;
+				}
+			}
+		}
+
+		/**
+		 * Compose automatiquement une série de coordonnées de glyphes
+		 * @param {Array<number>} listeGlyphs Tableau de numéros de glyphes (ex: [27, 7, 15, 32, 12, 30, 1])
+		 * @param {string} nomDestination Nom de la destination
+		 */
+		async function composerSequenceGlyphs(listeGlyphs, nomDestination = "Destination inconnue") {
+			if (!Array.isArray(listeGlyphs) || listeGlyphs.length === 0) return;
+			
+			if (sequenceAutoEnCours) {
+				arreterSequence();
+				await new Promise(r => setTimeout(r, 400));
+			}
+			
+			sequenceAutoEnCours = true;
+			stopSequenceAuto = false;
+			
+			fermerModalCoordonnees();
+
+			// Mettre à jour le texte DESTINATION dans le SVG
+			setDestination(nomDestination);
+			
+			// Si la porte est déjà active ou si des chevrons sont enclenchés, réinitialiser
+			if (currentDial > 1 || horizonActive) {
+				mettreAJourBanniereStatut("Réinitialisation de la Porte des Étoiles...", true, 0, listeGlyphs.length);
+				reset();
+				setDestination(nomDestination);
+				await new Promise(r => setTimeout(r, 1200));
+			}
+			
+			for (let i = 0; i < listeGlyphs.length; i++) {
+				if (stopSequenceAuto) break;
+				
+				const glyphId = listeGlyphs[i];
+				const chevronNum = i + 1;
+				
+				// Activer visuellement le glyphe dans le SVG
+				if (svgDocument) {
+					const glyphElem = svgDocument.getElementById(glyphId === 1 ? 'ZoneGlyph0' : `ZoneGlyph${glyphId - 1}`);
+					if (glyphElem) {
+						glyphElem.classList.add("glyph-active");
+					}
+				}
+				
+				// Lancer la rotation
+				tournerVersGlyph(glyphId);
+				
+				// Attendre que la rotation se termine et que le chevron soit validé
+				await attendreValidationChevron();
+				
+				if (stopSequenceAuto) break;
+				
+				// Si ce n'est pas le dernier glyphe, attendre DELAI_ENTRE_GLYPHS_SEC secondes avec compte à rebours
+				if (i < listeGlyphs.length - 1) {
+					for (let sec = DELAI_ENTRE_GLYPHS_SEC; sec > 0; sec--) {
+						if (stopSequenceAuto) break;
+						await new Promise(r => setTimeout(r, 1000));
+					}
+				}
+			}
+			
+			sequenceAutoEnCours = false;
+		}
+
+		// Rendre la fonction accessible globalement
+		window.composerSequenceGlyphs = composerSequenceGlyphs;
+		window.arreterSequence = arreterSequence;
+
+		/* =========================================================================
+		 * EXTRACTION VECTORIELLE ET GESTION DES GLYPHES DANS LE MODAL
+		 * ========================================================================= */
+		function precalculerBBoxesGlyphes() {
+			if (!svgDocument) return;
+			const glyphsDef = svgDocument.getElementById('glyphs');
+			if (!glyphsDef) return;
+
+			const oldDisplay = glyphsDef.style.display;
+			glyphsDef.style.display = 'inline';
+			glyphsDef.style.visibility = 'hidden';
+
+			for (let i = 1; i <= NB_GLYPHS; i++) {
+				const g = svgDocument.getElementById(`g${i}`);
+				if (g) {
+					try {
+						const bbox = g.getBBox();
+						const padding = 2;
+						const vx = bbox.x - padding;
+						const vy = bbox.y - padding;
+						const vw = Math.max(bbox.width + padding * 2, 1);
+						const vh = Math.max(bbox.height + padding * 2, 1);
+						glyphesBBoxCache[i] = {
+							viewBox: `${vx} ${vy} ${vw} ${vh}`,
+							innerHTML: g.innerHTML
+						};
+					} catch (e) {
+						console.warn(`Erreur calcul BBox pour g${i}:`, e);
+					}
+				}
+			}
+
+			glyphsDef.style.display = oldDisplay;
+		}
+
+		function genererSvgGlyphe(num, size = 28) {
+			const data = glyphesBBoxCache[num];
+			if (data && data.viewBox) {
+				return `<svg width="${size}" height="${size}" viewBox="${data.viewBox}" class="icone-glyphe-svg" style="display:block; overflow:visible;">${data.innerHTML}</svg>`;
+			}
+			// Fallback textuel si pas encore mesuré
+			return `<span>${num}</span>`;
+		}
+
+		/* =========================================================================
+		 * GESTION DE L'INTERFACE UTILISATEUR DU MODAL
+		 * ========================================================================= */
+		function initialiserUIModalCoordonnees() {
+			const btnOuvrir = svgDocument.getElementById("btn-coordonnees");
+			const modal = document.getElementById("modal-coordonnees");
+			const btnFermer = document.getElementById("modal-fermer");
+			const inputRecherche = document.getElementById("input-recherche");
+			const btnInterrompre = document.getElementById("btn-interrompre");
+
+
+			btnOuvrir.style.cursor = "pointer";
+			btnOuvrir.addEventListener("click", ouvrirModalCoordonnees);
+			btnFermer.addEventListener("click", fermerModalCoordonnees);
+
+			// Fermer en cliquant en dehors de la fenêtre
+			modal.addEventListener("click", (e) => {
+				if (e.target === modal) fermerModalCoordonnees();
+			});
+
+			// Recherche en temps réel
+			inputRecherche.addEventListener("input", (e) => {
+				const query = e.target.value.toLowerCase().trim();
+				afficherDestinations(query);
+			});
+
+			afficherDestinations();
+		}
+
+		function ouvrirModalCoordonnees() {
+			const modal = document.getElementById("modal-coordonnees");
+			modal.classList.add("actif");
+		}
+
+		function fermerModalCoordonnees() {
+			const modal = document.getElementById("modal-coordonnees");
+			modal.classList.remove("actif");
+		}
+
+		function afficherDestinations(filtre = "") {
+			const container = document.getElementById("destinations-liste");
+			const compteur = document.getElementById("compteur-destinations");
+			container.innerHTML = "";
+
+			const filtrees = COORDONNEES_STARGATE.filter(d => {
+				return d.nom.toLowerCase().includes(filtre) ||
+					   d.designation.toLowerCase().includes(filtre) ||
+					   d.galaxie.toLowerCase().includes(filtre) ||
+					   d.description.toLowerCase().includes(filtre);
+			});
+
+			compteur.textContent = `${filtrees.length} destination${filtrees.length > 1 ? 's' : ''}`;
+
+			filtrees.forEach((dest) => {
+				const card = document.createElement("div");
+				card.className = "dest-card";
+
+				// Construction des puces contenant uniquement les glyphes vectoriels (sans numéro)
+				const chipsHtml = dest.glyphes.map((g, idx) => {
+					const isOrigine = idx === dest.glyphes.length - 1;
+					const svgGlyphe = genererSvgGlyphe(g, 28);
+					return `<div class="glyph-chip ${isOrigine ? 'origine' : ''}" title="${isOrigine ? 'Point d\'origine' : 'Glyphe ' + g}">
+						${svgGlyphe}
+					</div>`;
+				}).join("");
+
+				card.innerHTML = `
+					<div>
+						<div class="dest-card-header">
+							<span class="dest-nom">${dest.nom}</span>
+							<span class="dest-galaxie">${dest.galaxie}</span>
+						</div>
+						<div class="dest-desc">${dest.designation}</div>
+						<div class="dest-glyphes-liste">
+							${chipsHtml}
+						</div>
+					</div>
+					<div class="dest-card-footer">
+						<button class="btn-composer" data-nom="${dest.nom}">
+							<span>ENCLENCHER</span>
+							<span>➔</span>
+						</button>
+					</div>
+				`;
+
+				// Bouton composer
+				card.querySelector(".btn-composer").addEventListener("click", () => {
+					composerSequenceGlyphs(dest.glyphes, dest.nom);
+				});
+
+				container.appendChild(card);
+			});
+		}
+		
+		// Notification à Home Assistant
+		function envoyerInfoHa(type, id, action) {
+			window.parent.postMessage({
+				type: "stargate_ha",
+				service: type,
+				chevron: id,
+				action: action
+			}, "*");
+		}
+		
+		/*********** ALLUMER ETEINDRE *************/
+		function allumerChevron(numChevron, delaiExtinction = null, dureeTransition = 500) {
+			envoyerInfoHa("stargate_chevron", numChevron, "on");
+			
+			const chevron = svgDocument.getElementById(`Chevron${numChevron}`);
+			if (chevron) {
+			  chevron.style.stroke = 'red';
+			}
+			
+			const chemin = svgDocument.getElementById(`Chemin${numChevron}`);
+			if (chemin) {
+			  chemin.style.stroke = 'red';
+			}
+			
+			const caseSel = svgDocument.getElementById(`Case${numChevron}`);
+			if (caseSel) {
+			  caseSel.style.stroke = 'red';
+			}
+		}
+		
+		function eteindreChevron(numChevron, dureeTransition = 500) {
+			envoyerInfoHa("stargate_chevron", numChevron, "off");
+
+			const chevron = svgDocument.getElementById(`Chevron${numChevron}`);
+			if (chevron) {
+			  chevron.style.stroke = '#b1c7d2';
+			}
+			
+			const chemin = svgDocument.getElementById(`Chemin${numChevron}`);
+			if (chemin) {
+			  chemin.style.stroke = '#b1c7d2';
+			}
+			
+			const caseSel = svgDocument.getElementById(`Case${numChevron}`);
+			if (caseSel) {
+			  caseSel.style.stroke = '#b1c7d2';
+			}
+		}
+		
+		function texteSuccess(text, color = '30ce33ff') {
+			const status = svgDocument.getElementById('status');
+			if (!status) return;
+
+			if (text === "") {
+				status.style.visibility = 'hidden';
+			} else {
+				status.style.visibility = 'visible';
+			}
+
+			status.style.stroke = color;
+			status.textContent = text;
+			console.log("status : " + status.textContent);
+		}
+		
+		function allumerHorizon(delai = 1000, dureeTransition = 0) {
+			horizonActive = true;
+			jouerSon("eh_open");
+			texteSuccess('SUCCESS', '30ce33ff');
+			
+			const horizon = svgDocument.getElementById("horizon");
+			if (!horizon) return;
+			
+			// Placer le groupe horizon au-dessus de l'anneau central pour qu'il reçoive tous les clics
+			const g51 = svgDocument.getElementById("g51");
+			if (g51 && g51.parentNode) {
+				g51.parentNode.appendChild(g51);
+			}
+
+			if (lueur) lueur.style.display = "none";
+			horizon.style.display = "inline";
+			horizon.style.opacity = "0";
+			horizon.style.pointerEvents = "all";
+			horizon.style.cursor = "pointer";
+			horizon.style.transition = `opacity ${dureeTransition}ms ease-out`;
+			
+			requestAnimationFrame(() => {
+				horizon.style.opacity = "1";
+			});
+			
+			setTimeout(() => {
+				jouerSon("eh_puddle", true);
+				horizon.style.display = "inline";
+				envoyerInfoHa("stargate_horizon", 0, "on");
+			}, delai);
+		}
+		
+		async function eteindreHorizon(delai = 1000, dureeTransition = 0) {
+			stopperSon("eh_puddle");
+			jouerSon("eh_close");
+
+			const horizon = svgDocument.getElementById("horizon");
+			if (!horizon) return;
+
+			horizon.style.transition = `opacity ${dureeTransition}ms ease`;
+			horizon.style.opacity = "0";
+
+			await new Promise(resolve => setTimeout(resolve, delai));
+
+			if (dureeTransition > 0) {
+				await new Promise(resolve => setTimeout(resolve, dureeTransition));
+			}
+
+			horizon.style.display = "none";
+			if (lueur) lueur.style.display = "inline";
+			horizonActive = false;
+
+			envoyerInfoHa("stargate_horizon", 0, "off");
+		}
+		
+		function reset() {
+			horizonActive = false;
+			currentDial = 1;
+			currentDialLineaire = 1;
+			setDestination(""); // Réinitialiser l'affichage de destination
+			eteindreHorizon(2000, 1000);
+			texteSuccess('IDLE','ba0000ff');
+			for (let i = 1; i <= NB_CHEVRONS; i++) {
+				eteindreChevron(i);
+				
+				const btnOk = svgDocument ? svgDocument.getElementById(`ok${i}`) : null;
+				if (btnOk) btnOk.style.display = "none";
+				const btnVert = svgDocument ? svgDocument.getElementById(`btnVert${i}`) : null;
+				if (btnVert) btnVert.style.display = "none";
+			}
+
+			// Nettoyer les glyphes sélectionnés précédents
+			if (svgDocument) {
+				const glyphsGrp = svgDocument.getElementById('grpGlyphsSelected');
+				if (glyphsGrp) glyphsGrp.innerHTML = '';
+				svgDocument.querySelectorAll('.glyph-active').forEach(el => el.classList.remove('glyph-active'));
+			}
+		}
+		
+		function rotateHorizontal3D(vitesse = 0.002) {
+			const logo = svgDocument.getElementById("logoSGC");
+			if (!logo) return;
+			const bbox = logo.getBBox();
+			const CX = bbox.x + bbox.width / 2;
+			const CY = bbox.y + bbox.height / 2;
+
+			let startTime = null;
+			function animateLogo(time) {
+				if (startTime === null) {
+					startTime = time;
+				}
+				const angle = (time - startTime) * vitesse;
+				const scaleX = Math.cos(angle);
+				logo.setAttribute(
+					"transform",
+					`translate(${CX} ${CY}) scale(${scaleX} 1) translate(${-CX} ${-CY})`
+				);
+				requestAnimationFrame(animateLogo);
+			}
+			requestAnimationFrame(animateLogo);
+		}
+		
+		/*********** SONS *************/
+		function initSons() {
+			for (let i = 1; i <= 7; i++) {
+				chargerSon(`dhd_${i}`, `dhd/dhd_usual_${i}.wav`);
+				chargerSon(`chevron_${i}`, `chevron/chev_usual_${i}.wav`);
+			}
+			chargerSon("eh_close", "eh/eh_usual_close.wav");
+			chargerSon("eh_open", "eh/eh_usual_open.wav");
+			chargerSon("eh_puddle", "eh/eh_puddle.wav");
+			chargerSon("roll", "roll.wav");
+		}
+		
+		function sonChevron(numChevron){
+			let num = numChevron % 7 + 1;
+			jouerSon(`chevron_${num}`);
+		}
+		
+		function sonDhd(){
+			let num = Math.floor(Math.random() * 7) + 1;
+			jouerSon(`dhd_${num}`);
+		}
+		
+		const sons = {};
+
+		function chargerSon(nom, fichier) {
+			const audio = new Audio(`sounds/${fichier}`);
+			audio.preload = "auto";
+			audio.load();
+			sons[nom] = audio;
+		}
+
+		function jouerSon(nom, boucle = false) {
+			const audio = sons[nom];
+			if (!audio) return;
+			if (!audio.paused) return;
+			
+			audio.loop = boucle;
+			audio.currentTime = 0;
+			audio.play();
+		}
+		
+		function stopperSon(nom) {
+			const audio = sons[nom];
+			if (!audio) return;
+			audio.pause();
+			audio.currentTime = 0;
+		}
+		
+		initSons();
+		
+		/*********** SÉLECTION ET ANIMATION DES GLYPHES *************/
+		function animerGlyphversMilieu(numero, scale = 10, duree = 500) {
+			const glyphOriginal = svgDocument.getElementById(`g${numero}`);
+			if (!glyphOriginal) {
+				console.error(`Groupe g${numero} introuvable`);
+				return null;
+			}
+
+			const glyph = glyphOriginal.cloneNode(true);
+			glyph.id = `GlyphClone${numero}`;
+			glyph.setAttribute('inkscape:label', `GlyphClone${numero}`);
+			glyph.setAttribute('data-index', numero);
+
+			const glyphsGrp = svgDocument.getElementById('grpGlyphsSelected');
+			glyphsGrp.appendChild(glyph);
+
+			const bbox = glyphOriginal.getBBox();
+			const ctm = glyphOriginal.getCTM();
+
+			const cx = bbox.x + bbox.width / 2;
+			const cy = bbox.y + bbox.height / 2;
+
+			const currentX = ctm.e + ctm.a * cx + ctm.c * cy;
+			const currentY = ctm.f + ctm.b * cx + ctm.d * cy;
+
+			const startTransform =
+				`translate(${currentX}px, ${currentY}px) ` +
+				`translate(${-cx}px, ${-cy}px)`;
+
+			const endTransform =
+				`translate(${CENTER_X}px, ${CENTER_Y}px) ` +
+				`scale(${scale}) ` +
+				`translate(${-cx}px, ${-cy}px)`;
+
+			const anim = glyph.animate(
+				[
+					{ transform: startTransform },
+					{ transform: endTransform }
+				],
+				{
+					duration: duree,
+					easing: 'cubic-bezier(0.25, 1, 0.5, 1)',
+					fill: 'forwards'
+				}
+			);
+
+			anim.onfinish = () => {
+				glyph.setAttribute(
+					'transform',
+					`translate(${CENTER_X}, ${CENTER_Y}) ` +
+					`scale(${scale}) ` +
+					`translate(${-cx}, ${-cy})`
+				);
+			};
+
+			return glyph;
+		}
+		
+		function animerGlypheVersCase(glyphElement, numeroCase, duree = 500) {
+		  const targetCase = svgDocument.getElementById(`Case${numeroCase}`);
+		  if (!targetCase) {
+			console.error(`La case Case${numeroCase} est introuvable.`);
+			return;
+		  }
+
+		  const bboxGlyph = glyphElement.getBBox();
+		  const cxGlyph = bboxGlyph.x + bboxGlyph.width / 2;
+		  const cyGlyph = bboxGlyph.y + bboxGlyph.height / 2;
+
+		  const bboxCase = targetCase.getBBox();
+		  const targetX = bboxCase.x + bboxCase.width / 2;
+		  const targetY = bboxCase.y + bboxCase.height / 2;
+
+		  const maxDimension = Math.max(bboxGlyph.width, bboxGlyph.height);
+		  const targetScale = maxDimension > 0 ? 60 / maxDimension : 1;
+
+		  const currentTransform = getComputedStyle(glyphElement).transform !== 'none'
+			? getComputedStyle(glyphElement).transform
+			: `translate(${CENTER_X}px, ${CENTER_Y}px) scale(15) translate(${-cxGlyph}px, ${-cyGlyph}px)`;
+
+		  const endTransform = `translate(${targetX}px, ${targetY}px) scale(${targetScale}) translate(${-cxGlyph}px, ${-cyGlyph}px)`;
+
+		  const animation = glyphElement.animate(
+			[
+			  { transform: currentTransform },
+			  { transform: endTransform }
+			],
+			{
+			  duration: duree,
+			  easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+			  fill: 'forwards'
+			}
+		  );
+
+		  animation.onfinish = () => {
+			glyphElement.setAttribute(
+			  'transform',
+			  `translate(${targetX}, ${targetY}) scale(${targetScale}) translate(${-cxGlyph}, ${-cyGlyph})`
+			);
+		  };
+		}
+    </script>
+</body>
+</html>

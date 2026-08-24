@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stargate</title>
+    <style>
+		html,
+		body {
+			width: 100%;
+			height: 100%;
+			margin: 0;
+			padding: 0;
+			overflow: hidden;
+            background: #000;
+		}
+
+		body {
+			display: flex;
+		}
+		
+        #container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        #stargate-container {
+            width: min(90vw, 90vh);
+            height: min(90vw, 90vh);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #stargate {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        /*
+         * Groupe "Anneau" du SVG
+         */
+		#Anneau {
+			transform-box: view-box;
+			transform-origin: 500px 500px;
+		}
+	</style>
+</head>
+<body>
+    <div id="container">
+        <div id="stargate-container">
+            <object
+                id="stargate"
+                data="images/Stargate.svg"
+                type="image/svg+xml">
+            </object>
+        </div>
+    </div>
+    <script>
+		const NB_GLYPHS = 39;
+		const NB_CHEVRONS = 9;
+		const CENTER_X = 400;
+		const CENTER_Y = 398.3125;
+		
+		const ANGLE_STEP = -360 / NB_GLYPHS;
+		
+        let anneau = null;
+        let speed = 30; // degrés/seconde
+        let rotating = false;
+        let animationFrame = null;
+		
+		let currentAngle = 0;
+		let targetAngle = null;
+		let lastTime = null;
+		let svgDocument = null;
+		
+		let currentDial = 1;
+		
+        /*
+         * Récupération du SVG contenu dans <object>
+         */
+        const svgObject = document.getElementById("stargate");
+        svgObject.addEventListener("load", function () {
+            svgDocument = svgObject.contentDocument;
+            if (!svgDocument) {
+                console.error("Impossible d'accéder au document SVG.");
+                return;
+            }
+			
+            /*
+             * Recherche du groupe Anneau
+             */
+            anneau = svgDocument.getElementById("Anneau");
+            if (!anneau) {
+                console.error(
+                    "Le groupe SVG #Anneau est introuvable."
+                );
+                console.log("Groupes disponibles :");
+                console.log(svgDocument.querySelectorAll("g"));
+                return;
+            }
+            // console.log("Groupe Anneau trouvé :",anneau);
+			
+			for (let i = 1; i <= NB_GLYPHS; i++) {
+				const glyph = svgDocument.getElementById(`ZoneGlyph${i}`);
+				if (!glyph) continue;
+				glyph.style.cursor = "pointer";
+				glyph.addEventListener("click", () => {
+					//console.log(`${id} cliqué`);
+					
+					if (currentDial>NB_CHEVRONS) {
+						reset();
+					}
+					
+					glyph.classList.add("glyph-active");
+					tournerVersGlyph(`${i}`);
+				});
+			}
+			
+			const horizon = svgDocument.getElementById("horizon");
+			horizon.style.cursor = "pointer";
+			horizon.classList.add("pulse");
+			horizon.addEventListener("click", () => {
+				reset();
+			});
+			
+			for (let i = 1; i <= NB_GLYPHS; i++) {
+				const glyph = svgDocument.getElementById(`ZoneGlyph${i}`);
+				const groupe = svgDocument.getElementById(`g${i}`);
+
+				if (!glyph || !groupe) continue;
+
+				glyph.addEventListener("mouseenter", () => {
+					groupe.querySelectorAll("polygon, circle, path").forEach(element => {
+						element.style.setProperty("stroke", "white", "important");
+					});
+				});
+
+				glyph.addEventListener("mouseleave", () => {
+					groupe.querySelectorAll("polygon, circle, path").forEach(element => {
+						element.style.removeProperty("stroke");
+					});
+				});
+			}
+			
+            /*
+             * Lancement de l'animation
+             */
+            animate();
+        });	
+		
+        /*
+         * Animation de rotation
+         */
+		function animate(time) {
+			if (lastTime === null) {
+				lastTime = time;
+			}
+
+			const deltaTime = (time - lastTime) / 1000;
+			lastTime = time;
+
+			if (rotating && targetAngle !== null) {
+				// Différence normalisée entre -180° et +180°
+				let difference = ((targetAngle - currentAngle + 180) % 360) - 180;
+
+				const distance = speed * deltaTime;
+
+				let audio = null;
+				
+				// Arrivée à destination
+				if (Math.abs(difference) <= distance) {
+					stopperSon("roll");
+					currentAngle = targetAngle;
+					rotating = false;
+					console.log("Rotation terminée");
+					validerChevron();
+				} else {
+					jouerSon("roll");
+					
+					// Rotation dans le sens le plus court
+					currentAngle +=
+						difference > 0
+							? distance
+							: -distance;
+				}
+
+				anneau.setAttribute("transform", `rotate(${currentAngle} ${CENTER_X} ${CENTER_Y})`);
+			}
+			requestAnimationFrame(animate);
+		}
+		
+		/**
+		 * Fait tourner l'anneau jusqu'au glyph demandé.
+		 *
+		 * @param {string} glyphId Exemple : "ZoneGlyph17"
+		 */
+		function tournerVersGlyph(id) {
+			if (id < 1 || id > 39) {
+				console.error("Numéro de glyph invalide :", id);
+				return;
+			}
+			
+			sonDhd();
+			agrandirGroupe(id);
+
+			// Angle du glyph
+			const clickedAngle = (id - 1) * ANGLE_STEP;
+
+			// Normalisation de l'angle entre 0 et 360
+			const normalizedTarget = ((clickedAngle % 360) + 360) % 360;
+			const normalizedCurrent = ((currentAngle % 360) + 360) % 360;
+
+			// Différence la plus courte
+			let difference = normalizedTarget - normalizedCurrent;
+
+			if (difference > 180) {
+				difference -= 360;
+			}
+
+			if (difference < -180) {
+				difference += 360;
+			}
+
+			// Nouvelle cible
+			targetAngle = currentAngle + difference;
+
+			rotating = true;
+
+			console.log(`${id} → angle ${clickedAngle.toFixed(2)}°`);
+			console.log(`Angle actuel : ${currentAngle.toFixed(2)}°`);
+			console.log(`Angle cible normalisé : ${normalizedTarget.toFixed(2)}°`);
+			console.log(`Rotation nécessaire : ${difference.toFixed(2)}°`);
+		}
+		
+		function validerChevron() {
+			const deplacementValidationBas = 8;
+			const deplacementValidationHaut = deplacementValidationBas/2;
+			const vitesseTranslation = 40; // pixels/seconde
+			
+			sonChevron(currentDial);
+
+			console.log(`validerChevron ${currentDial}`);
+
+			translater("valider_bas", deplacementValidationBas, vitesseTranslation);
+			translater(`lumieresBasChevron${NB_CHEVRONS}`, deplacementValidationBas, vitesseTranslation);
+
+			translater("valider_haut", -deplacementValidationHaut, vitesseTranslation/2);
+			translater(`lumiere_principale_${NB_CHEVRONS}`, -deplacementValidationHaut, vitesseTranslation/2);
+			
+			if (currentDial == NB_CHEVRONS) {
+				allumerHorizon(2000,1000);
+				allumerChevron(currentDial);
+				allumerChevron(4);
+				allumerChevron(5);
+			} else {
+				allumerChevron(NB_CHEVRONS, 1000, 100);
+				allumerChevron(currentDial);
+			}
+			
+			currentDial = currentDial + 1;
+			if (currentDial==4) {
+				currentDial = 6;
+			}
+		}
+		
+		function translater(elementId, distance, speed) {
+			const element = svgDocument.getElementById(elementId);
+
+			if (!element) {
+				console.error(`Élément ${elementId} introuvable`);
+				return;
+			}
+
+			let position = 0;
+			let lastTime = null;
+
+			const PAUSE_DURATION = 500; // 1 seconde
+			let pauseStart = null;
+			let phase = "aller";
+
+			function animationTranslation(time) {
+				if (lastTime === null) {
+					lastTime = time;
+				}
+
+				const deltaTime = (time - lastTime) / 1000;
+
+				lastTime = time;
+
+				// =========================
+				// ALLER
+				// =========================
+
+				if (phase === "aller") {
+					const movement = speed * deltaTime;
+					const remaining = Math.abs(distance - position);
+
+					if (remaining <= movement) {
+						position = distance;
+						element.setAttribute("transform", `translate(0,${position})`);
+
+						// Passage en pause
+						phase = "pause";
+						pauseStart = time;
+					} else {
+						if (distance > 0) {
+							position += movement;
+						} else {
+							position -= movement;
+						}
+						element.setAttribute("transform", `translate(0,${position})`);
+					}
+				}
+
+
+				// =========================
+				// PAUSE
+				// =========================
+
+				else if (phase === "pause") {
+					if (time - pauseStart >= PAUSE_DURATION) {
+						phase = "retour";
+					}
+				}
+
+				// =========================
+				// RETOUR
+				// =========================
+
+				else if (phase === "retour") {
+					const movement =
+						speed * deltaTime;
+					const remaining =
+						Math.abs(position);
+					if (remaining <= movement) {
+						position = 0;
+						element.setAttribute("transform", `translate(0,0)`);
+						//console.log(`${elementId} animation terminée`);
+						return;
+					} else {
+						if (distance > 0) {
+							position -= movement;
+						} else {
+							position += movement;
+						}
+						element.setAttribute("transform", `translate(0,${position})`);
+					}
+				}
+				requestAnimationFrame(animationTranslation);
+			}
+			requestAnimationFrame(animationTranslation);
+		}
+		
+		
+		
+		// Notification à Home Assistant
+		function envoyerInfoHa(type, id, action) {
+			window.parent.postMessage({
+				type: "stargate_ha",
+				service: type,
+				chevron: id,
+				action: action
+			}, "*");
+		}
+		
+		
+		/*********** ALLUMER ETEINDRE *************/
+		function allumerChevron(numChevron, delaiExtinction = null, dureeTransition = 500) {
+			envoyerInfoHa("stargate_chevron", numChevron, "on");
+			
+			const element = svgDocument.getElementById(`lumieresChevron${numChevron}`);
+
+			if (!element) return;
+
+			element.style.display = "inline";
+			element.style.opacity = "0";
+			element.style.transition = `opacity ${dureeTransition}ms ease-out`;
+
+			requestAnimationFrame(() => {
+				element.style.opacity = "1";
+			});
+
+			// Si une durée est définie
+			if (delaiExtinction !== null) {
+				setTimeout(() => {
+					eteindreChevron(numChevron);
+				}, delaiExtinction);
+			}
+		}
+		
+		function eteindreChevron(numChevron, dureeTransition = 500) {
+			envoyerInfoHa("stargate_chevron", numChevron, "off");
+
+			const element = svgDocument.getElementById(`lumieresChevron${numChevron}`);
+			if (!element) return;
+
+			element.style.transition = `opacity ${dureeTransition}ms ease`;
+			element.style.opacity = "0";
+
+			setTimeout(() => {
+				element.style.display = "none";
+			}, dureeTransition);
+		}
+		
+		function allumerHorizon(delai = 1000, dureeTransition = 0) {
+			jouerSon("eh_open");
+			
+			const horizon = svgDocument.getElementById("horizon");
+			if (!horizon) return;
+			
+			horizon.style.display = "inline";
+			horizon.style.opacity = "0";
+			horizon.style.transition = `opacity ${dureeTransition}ms ease-out`;
+			
+			requestAnimationFrame(() => {
+				horizon.style.opacity = "1";
+			});
+			
+			setTimeout(() => {
+				jouerSon("eh_puddle", true);
+				horizon.style.display = "inline";
+				envoyerInfoHa("stargate_horizon", 0, "on");
+			}, delai);
+		}
+		
+		async function eteindreHorizon(delai = 1000, dureeTransition = 0) {
+			stopperSon("eh_puddle");
+			jouerSon("eh_close");
+
+			const horizon = svgDocument.getElementById("horizon");
+
+			if (!horizon) return;
+
+			horizon.style.transition = `opacity ${dureeTransition}ms ease`;
+
+			horizon.style.opacity = "0";
+
+			// Attendre le délai avant de réellement terminer
+			await new Promise(resolve => setTimeout(resolve, delai));
+
+			// Attendre la fin du fondu
+			if (dureeTransition > 0) {
+				await new Promise(resolve =>
+					setTimeout(resolve, dureeTransition)
+				);
+			}
+
+			horizon.style.display = "none";
+
+			envoyerInfoHa("stargate_horizon", 0, "off");
+		}
+		
+		function reset() {
+			console.log("reset");
+			currentDial = 1;
+			eteindreHorizon(2000,1000);
+			for (let i = 1; i <= NB_CHEVRONS; i++) {
+				eteindreChevron(i);
+			}
+		}
+		
+		
+		
+		
+		
+		
+		
+		/*********** SONS *************/
+		function initSons() {
+			for (let i = 1; i <= 7; i++) {
+				chargerSon(`dhd_${i}`, `dhd/dhd_usual_${i}.wav`);
+				chargerSon(`chevron_${i}`, `chevron/chev_usual_${i}.wav`);
+			}
+			chargerSon("eh_close", "eh/eh_usual_close.wav");
+			chargerSon("eh_open", "eh/eh_usual_open.wav");
+			chargerSon("eh_puddle", "eh/eh_puddle.wav");
+			
+			chargerSon("roll", "roll.wav");
+		}
+		
+		function sonChevron(numChevron){
+			let num = numChevron % 7 + 1;
+			jouerSon(`chevron_${num}`);
+		}
+		
+		function sonDhd(){
+			let num = Math.floor(Math.random() * 7) + 1;
+			jouerSon(`dhd_${num}`);
+		}
+		
+		const sons = {};
+
+		function chargerSon(nom, fichier) {
+			const audio = new Audio(`sounds/${fichier}`);
+			audio.preload = "auto";
+			audio.load();
+
+			sons[nom] = audio;
+		}
+
+		function jouerSon(nom, boucle = false) {
+			const audio = sons[nom];
+			if (!audio) return;
+			if (!audio.paused) return;
+			
+			audio.loop = boucle;
+			audio.currentTime = 0;
+			audio.play();
+		}
+		
+		function stopperSon(nom) {
+			const audio = sons[nom];
+
+			if (!audio) return;
+
+			audio.pause();
+			audio.currentTime = 0;
+		}
+		
+		initSons();
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		/*********** SELECT *************/
+		function agrandirGroupe(numero, duree = 500) {
+			/*const original = svgDocument.getElementById(`g${numero}`);
+			debugger;
+			console.log(original);
+
+			if (!original) {
+				console.error(`Groupe g${numero} introuvable`);
+				return;
+			}
+
+			// Cloner le groupe
+			const clone = original.cloneNode(true);
+			
+			// Nouvel ID
+			clone.removeAttribute("id");
+			
+			//console.log(clone);
+
+			// Ajouter le clone à la fin du SVG pour qu'il soit au-dessus
+			original.parentNode.appendChild(clone);
+
+			// Centre du Stargate
+			const cx = CENTER_X;
+			const cy = CENTER_Y;
+
+			// Animation
+			const debut = performance.now();
+
+			function animation(time) {
+
+				const progression =
+					Math.min((time - debut) / duree, 1);
+
+				// Petit effet d'accélération
+				const scale =
+					1 + progression * 1.5;
+
+				clone.setAttribute(
+					"transform",
+					`translate(${cx} ${cy}) scale(${scale}) translate(${-cx} ${-cy})`
+				);
+
+				if (progression < 1) {
+					requestAnimationFrame(animation);
+				}
+			}
+
+			requestAnimationFrame(animation);*/
+		}
+    </script>
+</body>
+</html>
