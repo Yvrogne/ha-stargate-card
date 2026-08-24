@@ -1,5 +1,6 @@
 {
   "name": "Stargate Dial Card",
-  "filename": "stargate-card.js",
-  "render_readme": true
+  "filename": "stargate-dial-card.js",
+  "render_readme": true,
+  "zip_release": true
 }
