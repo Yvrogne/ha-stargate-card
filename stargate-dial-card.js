@@ -35,7 +35,7 @@ class StargateCard extends HTMLElement {
         if (!this.shadowRoot) return;
 
         const file = this.config.file || "index.html";
-        const basePath = this.config.path || "/local/community/ha-stargate-dial-card/";
+        const basePath = this.config.path || "/local/community/ha-stargate-card/";
         
         let fullSrc = file;
         if (!file.startsWith("/") && !file.startsWith("http")) {
@@ -138,18 +138,18 @@ class StargateCard extends HTMLElement {
 
     static getStubConfig() {
         return {
-            type: "custom:stargate-dial-card",
+            type: "custom:stargate-card",
             file: "index.html"
         };
     }
 }
 
 // Alignement sur custom:stargate-card
-customElements.define("stargate-dial-card", StargateCard);
+customElements.define("stargate-card", StargateCard);
 
 window.customCards = window.customCards || [];
 window.customCards.push({
-    type: "stargate-dial-card.js",
+    type: "stargate-card.js",
     name: "Stargate dial Card",
     description: "Interface interactive de la Porte des Étoiles (SGC) pour Home Assistant",
     preview: true,
