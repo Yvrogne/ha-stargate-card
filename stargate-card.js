@@ -149,7 +149,7 @@ customElements.define("stargate-card", StargateCard);
 
 window.customCards = window.customCards || [];
 window.customCards.push({
-    type: "stargate-card.js",
+    type: "stargate-card",
     name: "Stargate dial Card",
     description: "Interface interactive de la Porte des Étoiles (SGC) pour Home Assistant",
     preview: true,
